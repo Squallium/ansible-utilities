@@ -1,0 +1,22 @@
+---
+- hosts: wordpress
+  become: yes
+  remote_user: ubuntu
+  vars:
+    user: ubuntu
+    home_path: "/home/{{user}}"
+    backup_path: "{{home_path}}/backups"
+  tasks:
+  - name: ping
+    ping:
+  - name: Include secret vars
+    include_vars:
+      file: secret-wordpress.yml
+      name: secret
+  - include: ./pb-mysql-docker-data.yml
+  - include: ./pb-volume-docker-data.yml
+      volume_name="{{item.name}}"
+      volume_path="{{item.path}}"
+    with_items:
+      - { name: 'wordpress', path: '{{home_path}}/html' }
+      - { name: 'wordpressdb', path: '{{home_path}}/database' }

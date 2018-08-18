@@ -1,0 +1,1 @@
+In this folder you can put all your credentials file, never upload this folder to a public repo

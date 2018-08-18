@@ -1,0 +1,51 @@
+---
+  - set_fact:
+        date_time: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+        databases: "{{ database_name | default('--all-databases') }}"
+  - name: Install pip
+    apt:
+      name: "{{item}}"
+      state: present
+    with_items:
+      - python-dev
+      - python-pip
+      - build-essential
+      - python3-dev
+      - python3-pip
+  - name: Installed boto3
+    pip:
+      name: boto3
+  - name: Delete files folder
+    file:
+      path: '{{ backup_path }}'
+      state: absent
+    ignore_errors: True
+  - name: Creates directory backup
+    file:
+      path: '{{ backup_path }}'
+      state: directory
+      owner: '{{ user }}'
+      group: '{{ user }}'
+  - name: Mysql dump
+    become: yes
+    shell: docker exec {{ secret.mysql_docker }} sh -c 'exec mysqldump --user={{ secret.mysql_user }} --password={{ secret.mysql_password }} {{ databases }}' > {{ backup_path }}/MySQL.sql
+  - name: create a compressed archive
+    become: yes
+    archive:
+      format: zip
+      path: '{{ backup_path }}/MySQL.sql'
+      dest: '{{ backup_path }}/dump-{{date_time}}.zip'
+      remove: True
+  - name: S3 push backup
+    s3_sync:
+      aws_access_key: "{{secret.aws_access_key}}"
+      aws_secret_key: "{{secret.aws_secret_key}}"
+      region: "{{secret.aws_region_name}}"
+      bucket: "{{secret.aws_s3_bucket_name}}"
+      mode: push
+      key_prefix: '{{ secret.aws_s3_bucket_folder }}'
+      file_root: '{{ backup_path }}'
+  - name: Delete files folder
+    file:
+      path: '{{ backup_path }}'
+      state: absent
