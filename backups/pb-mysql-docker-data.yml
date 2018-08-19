@@ -1,7 +1,7 @@
 ---
   - set_fact:
         date_time: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
-        databases: "{{ database_name | default('--all-databases') }}"
+        databases: "{{ mysql_database_name | default('--all-databases') }}"
   - name: Install pip
     apt:
       name: "{{item}}"
