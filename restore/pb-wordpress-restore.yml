@@ -6,8 +6,9 @@
     user: ubuntu
     home_path: "/home/{{user}}"
     backup_path: "{{home_path}}/backups"
-    backup_mysql_name: dump-20180819-091642.zip
-    backup_volume_wp_name: volume-wordpress-20180818-093624.zip
+    # backup_mysql_name: dump-20180820-150707.zip
+    backup_volume_wp_name: volume-wordpress-20180822-202211.zip
+    backup_volume_wp_db_name: volume-wordpressdb-20180822-202236.zip
   tasks:
   - name: ping
     ping:
@@ -15,15 +16,15 @@
     include_vars:
       file: secret-wordpress-restore.yml
       name: secret
-#  - name: Run apt-get update
-#    become: yes
-#    apt:
-#      update_cache=yes
-#      cache_valid_time=3600
-#  - include: ../util/pb-install-docker.yml
-#  - name: Installed boto3
-#    pip:
-#      name: boto3
+  - name: Run apt-get update
+    become: yes
+    apt:
+      update_cache=yes
+      cache_valid_time=3600
+  - include: ../util/pb-install-docker.yml
+  - name: Installed boto3
+    pip:
+      name: boto3
   - name: Delete files folder
     file:
       path: '{{ backup_path }}'
@@ -45,8 +46,9 @@
       dest: "{{backup_path}}/{{item}}"
       mode: get
     with_items:
-      - "{{backup_mysql_name}}"
+      # - "{{backup_mysql_name}}"
       - "{{backup_volume_wp_name}}"
+      - "{{backup_volume_wp_db_name}}"
   - name: Creates dumps directory
     file:
       path: '{{ backup_path }}/dumps'
@@ -56,15 +58,16 @@
   - name: Extract the zip files
     shell: unzip -o "{{backup_path}}/{{item.file}}" -d "{{item.dest}}"
     with_items:
-      - { file: "{{backup_mysql_name}}", dest: "{{ backup_path }}/dumps" }
+      # - { file: "{{backup_mysql_name}}", dest: "{{ backup_path }}/dumps" }
       - { file: "{{backup_volume_wp_name}}", dest:  "{{home_path}}"}
-  - name: Change dump file owner to mysql user
-    file:
-      path: "{{ backup_path }}/dumps"
-      owner: 999
-      group: 999
-      mode: 0755
-      recurse: yes
+      - { file: "{{backup_volume_wp_db_name}}", dest:  "{{home_path}}"}
+#  - name: Change dump file owner to mysql user
+#    file:
+#      path: "{{ backup_path }}/dumps"
+#      owner: 999
+#      group: 999
+#      mode: 0755
+#      recurse: yes
   - name: Run MariaDB docker and load dump file
     docker_container:
       name: mariadb
@@ -74,26 +77,26 @@
       ports:
         - "3306:3306"
       volumes:
-        - "{{backup_path}}/dumps:/docker-entrypoint-initdb.d"
+        # - "{{backup_path}}/dumps:/docker-entrypoint-initdb.d"
         - "{{home_path}}/database:/var/lib/mysql"
       env:
         MYSQL_ROOT_PASSWORD: "{{ secret.mysql_root_password }}"
         MYSQL_USER: "{{ secret.mysql_user }}"
         MYSQL_PASSWORD: "{{ secret.mysql_password }}"
         MYSQL_DATABASE: "{{ secret.mysql_database }}"
-#  - name: waiting 30 seconds for mariadb starting
-#    pause:
-#      seconds: 30
-#  - name: Run Wordpress docker
-#    docker_container:
-#      name: wordpress
-#      image: wordpress
-#      restart: yes
-#      restart_policy: unless-stopped
-#      ports:
-#        - "80:80"
-#        - "443:443"
-#      links:
-#          - "mariadb:mysql"
-#      volumes:
-#        - "{{home_path}}/html:/var/www/html"
+  - name: waiting 30 seconds for mariadb starting
+    pause:
+      seconds: 30
+  - name: Run Wordpress docker
+    docker_container:
+      name: wordpress
+      image: wordpress
+      restart: yes
+      restart_policy: unless-stopped
+      ports:
+        - "80:80"
+        # - "443:443"
+      links:
+          - "mariadb:mysql"
+      volumes:
+        - "{{home_path}}/html:/var/www/html"
